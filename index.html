@@ -237,37 +237,63 @@
   }
 
   /* GANTT */
-  .gantt { overflow: visible; }
-  .gantt-blocks {
+  .gantt-scroll-wrap {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 26px;
+  }
+  .gantt-scroll-wrap::-webkit-scrollbar { height: 6px; }
+  .gantt-scroll-wrap::-webkit-scrollbar-track { background: var(--surface2); border-radius: 3px; }
+  .gantt-scroll-wrap::-webkit-scrollbar-thumb { background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 3px; }
+  .gantt-scroll-wrap::-webkit-scrollbar-thumb:hover { background: linear-gradient(135deg, #1d4ed8, #6d28d9); }
+  .gantt-scroll-wrap { scrollbar-width: thin; scrollbar-color: var(--accent) var(--surface2); }
+
+  .gantt-blocks-row {
     display: flex;
-    width: 100%;
+    flex-direction: row;
+    position: relative;
+  }
+  .gantt-seg {
+    position: relative;
+    flex: 0 0 72px;
+    width: 72px;
   }
   .block {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 14px 4px;
+    display: block;
+    width: 100%;
+    height: 44px;
+    padding: 0 4px;
     text-align: center;
+    line-height: 44px;
     font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
-    font-size: 0.8rem;
-    color: #fff;
-    border: none;
+    font-size: 0.78rem;
     letter-spacing: 0.04em;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
-  .gantt-times {
-    display: flex;
-    gap: 3px;
-    margin-top: 5px;
-    min-width: max-content;
-  }
-  .time {
-    min-width: 62px;
-    font-size: 0.65rem;
+  .time-label {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    transform: translateX(-50%);
     font-family: 'JetBrains Mono', monospace;
+    font-size: 0.64rem;
     color: var(--muted);
+    white-space: nowrap;
+    user-select: none;
+  }
+  .end-label {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 100%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.64rem;
+    color: var(--muted);
+    white-space: nowrap;
+    user-select: none;
   }
 
   /* TABLE */
@@ -330,6 +356,7 @@
     background-clip: text;
   }
 </style>
+<base target="_blank">
 </head>
 <body>
 <div class="container">
@@ -557,63 +584,60 @@ function run() {
     tbody.appendChild(row);
   });
 
-  // Gantt — proportional block widths based on duration
+  // Gantt — fixed block sizes, scrollable when overlapping
   let g = document.getElementById("gantt");
   g.innerHTML = "";
 
-  const totalDuration = log[log.length - 1].end - log[0].start;
+  const BLOCK_W = 72;
 
-  const ganttWrap = document.createElement("div");
-  ganttWrap.style.cssText = "display:flex; width:100%; position:relative;";
+  const scrollWrap = document.createElement("div");
+  scrollWrap.className = "gantt-scroll-wrap";
+
+  const row = document.createElement("div");
+  row.className = "gantt-blocks-row";
 
   log.forEach((l, i) => {
-    const duration = l.end - l.start;
-    const pct = (duration / totalDuration * 100).toFixed(4);
-
     const seg = document.createElement("div");
-    seg.style.cssText = `flex: 0 0 ${pct}%; position:relative; min-width:0;`;
+    seg.className = "gantt-seg";
 
     const b = document.createElement("div");
     b.className = "block";
-    b.style.cssText = `
-      width:100%; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
-      border-radius: ${i === 0 ? "8px 0 0 8px" : i === log.length-1 ? "0 8px 8px 0" : "0"};
-      background: ${l.id === -1 ? "#e2e8f0" : colors[l.id % colors.length]};
-      border: ${l.id === -1 ? "1px dashed #cbd5e1" : "none"};
-      color: ${l.id === -1 ? "#64748b" : "#fff"};
-    `;
-    b.innerText = l.id === -1 ? "IDLE" : `P${l.id+1}`;
+    const isIdle = l.id === -1;
+    const isFirst = i === 0;
+    const isLast = i === log.length - 1;
+    b.style.cssText = [
+      `background: ${isIdle ? "#e2e8f0" : colors[l.id % colors.length]}`,
+      `border: ${isIdle ? "1px dashed #cbd5e1" : "none"}`,
+      `color: ${isIdle ? "#64748b" : "#fff"}`,
+      `border-radius: ${isFirst && isLast ? "8px" : isFirst ? "8px 0 0 8px" : isLast ? "0 8px 8px 0" : "0"}`
+    ].join(";");
+    b.innerText = isIdle ? "IDLE" : `P${l.id+1}`;
 
-    // Start time label pinned to left edge
     const tLabel = document.createElement("div");
-    tLabel.style.cssText = `
-      position:absolute; top:calc(100% + 6px); left:0;
-      transform:translateX(-50%);
-      font-family:'JetBrains Mono',monospace; font-size:0.65rem;
-      color:var(--muted); white-space:nowrap;
-    `;
+    tLabel.className = "time-label";
     tLabel.innerText = l.start;
 
     seg.appendChild(b);
     seg.appendChild(tLabel);
-    ganttWrap.appendChild(seg);
+    row.appendChild(seg);
   });
 
-  // End time pinned to right edge
-  const endLabel = document.createElement("div");
-  endLabel.style.cssText = `
-    position:absolute; top:calc(100% + 6px); right:0;
-    transform:translateX(50%);
-    font-family:'JetBrains Mono',monospace; font-size:0.65rem;
-    color:var(--muted); white-space:nowrap;
-  `;
-  endLabel.innerText = log[log.length - 1].end;
-  ganttWrap.appendChild(endLabel);
+  if (log.length > 0) {
+    const lastSeg = row.lastElementChild;
+    const endLabel = document.createElement("div");
+    endLabel.className = "end-label";
+    endLabel.innerText = log[log.length - 1].end;
+    lastSeg.appendChild(endLabel);
+  }
 
-  const ganttOuter = document.createElement("div");
-  ganttOuter.style.cssText = "padding-bottom:28px; overflow:visible;";
-  ganttOuter.appendChild(ganttWrap);
-  g.appendChild(ganttOuter);
+  scrollWrap.appendChild(row);
+  g.appendChild(scrollWrap);
+
+  requestAnimationFrame(() => {
+    const totalW = log.length * BLOCK_W;
+    const availW = scrollWrap.clientWidth;
+    scrollWrap.style.overflowX = totalW > availW ? "auto" : "visible";
+  });
 
   // Timeline
   let timelineDiv = document.getElementById("timeline");
