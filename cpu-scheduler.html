@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CPU Scheduling Simulator</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #f4f7fb;
+  --surface: #ffffff;
+  --surface2: #f1f5f9;
+  --border: #e2e8f0;
+
+  --accent: #2563eb;
+  --accent2: #7c3aed;
+
+  --green: #10b981;
+
+  --text: #1e293b;
+  --muted: #64748b;
+
+  --radius: 14px;
+}
+
+  body {
+  font-family: 'Syne', sans-serif;
+  background: linear-gradient(135deg, #eef2ff, #f8fafc);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 24px 16px;
+}
+
+  .container {
+    max-width: 820px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  /* HEADER */
+  .header {
+    text-align: center;
+    padding: 12px 0 4px;
+  }
+  .header h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header p {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* CARD */
+  .card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+}
+  .card h3 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 14px;
+  }
+
+  /* ALGO ROW */
+  .algo-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    align-items: end;
+  }
+
+  label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+
+  select, input[type="number"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.2s;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  select:focus, input[type="number"]:focus {
+    border-color: var(--accent);
+  }
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  input[type=number] {
+  -moz-appearance: textfield;
+}
+
+  .quantum-wrap { min-width: 130px; }
+
+  /* JOB TABLE */
+  .job-header, .job-row {
+    display: grid;
+    grid-template-columns: 44px 1fr 1fr 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .job-header {
+    margin-bottom: 8px;
+  }
+  .job-header span {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+  }
+  .job-row { margin-bottom: 6px; }
+  .job-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-align: center;
+    background: rgba(79,142,255,0.08);
+    border-radius: 6px;
+    padding: 8px 4px;
+  }
+  .job-row input {
+    text-align: center;
+    padding: 8px;
+  }
+
+  .controls-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 10px;
+    align-items: end;
+    margin-top: 4px;
+  }
+  .num-jobs-wrap { min-width: 110px; }
+
+  /* BUTTON */
+  button {
+    padding: 11px 20px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    width: 100%;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+  button:hover { opacity: 0.9; }
+  button:active { transform: scale(0.98); }
+
+  /* TIMELINE */
+  .timeline {
+    position: relative;
+    height: 90px;
+    padding: 0 10px;
+    overflow-x: auto;
+  }
+  .timeline-line {
+    position: absolute;
+    left: 10px;
+    right: 10px;
+    top: 52px;
+    height: 2px;
+    background: #cbd5e1;
+  }
+  .timeline-mark {
+    position: absolute;
+    top: 47px;
+    width: 2px;
+    height: 10px;
+    background: var(--muted);
+    transform: translateX(-50%);
+  }
+  .timeline-time {
+    position: absolute;
+    top: 62px;
+    font-size: 0.68rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+    transform: translateX(-50%);
+  }
+  .timeline-label {
+    position: absolute;
+    top: 22px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    transform: translateX(-50%);
+  }
+  .timeline-dot {
+    position: absolute;
+    top: 46px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    border: 2px solid var(--bg);
+  }
+
+  /* GANTT */
+  .gantt { overflow: visible; }
+  .gantt-blocks {
+    display: flex;
+    width: 100%;
+  }
+  .block {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 14px 4px;
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: #fff;
+    border: none;
+    letter-spacing: 0.04em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .gantt-times {
+    display: flex;
+    gap: 3px;
+    margin-top: 5px;
+    min-width: max-content;
+  }
+  .time {
+    min-width: 62px;
+    font-size: 0.65rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--muted);
+  }
+
+  /* TABLE */
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 0.82rem;
+  }
+  thead th {
+    background: var(--surface2);
+    padding: 9px 10px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td {
+    padding: 9px 10px;
+    text-align: center;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td:first-child { font-weight: 700; color: var(--accent); }
+
+  /* METRICS */
+  .metrics {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .metric-box {
+    background: var(--surface2);
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .metric-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: block;
+    margin-bottom: 6px;
+  }
+  .metric-value {
+    font-size: 1.4rem;
+    font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>CPU Scheduler</h1>
+  </div>
+
+  <!-- CONFIG -->
+  <div class="card">
+    <h3>Configuration</h3>
+    <div class="algo-row">
+      <div>
+        <label>Algorithm</label>
+        <select id="algorithm">
+          <option value="FCFS">FCFS — First Come First Serve</option>
+          <option value="SJF">SJF — Shortest Job First</option>
+          <option value="SRTF">SRTF — Shortest Remaining Time First</option>
+          <option value="PRIORITY_NP">Priority (Non-preemptive)</option>
+          <option value="PRIORITY_P">Priority (Preemptive)</option>
+          <option value="RR">Round Robin</option>
+        </select>
+      </div>
+      <div class="quantum-wrap">
+        <label>Time Quantum</label>
+        <input type="number" id="quantum" placeholder="RR only" min="1">
+      </div>
+    </div>
+  </div>
+
+  <!-- JOBS -->
+  <div class="card">
+    <h3>Processes</h3>
+    <div class="controls-row" style="margin-bottom:14px;">
+      <div class="num-jobs-wrap">
+        <label>No. of Jobs</label>
+        <input type="number" id="numJobs" value="3" min="1" max="10">
+      </div>
+      <div style="align-self:end;">
+        <button onclick="run()">▶ Run Simulation</button>
+      </div>
+    </div>
+    <div class="job-header">
+      <span>ID</span><span>Arrival</span><span>Burst</span><span>Priority</span>
+    </div>
+    <div id="jobsContainer"></div>
+  </div>
+
+  <!-- TIMELINE -->
+  <div class="card">
+    <h3>Arrival Timeline</h3>
+    <div id="timeline" class="timeline"></div>
+  </div>
+
+  <!-- GANTT -->
+  <div class="card">
+    <h3>Gantt Chart</h3>
+    <div id="gantt" class="gantt"></div>
+  </div>
+
+  <!-- TABLE -->
+  <div class="card">
+    <h3>Process Details</h3>
+    <table id="tatTable">
+      <thead>
+        <tr>
+          <th>Process</th>
+          <th>Arrival</th>
+          <th>Burst</th>
+          <th>Priority</th>
+          <th>Finish</th>
+          <th>TT</th>
+          <th>WT</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- METRICS -->
+  <div class="metrics">
+    <div class="metric-box">
+      <span class="metric-label">Avg Turnaround</span>
+      <div class="metric-value" id="tat">—</div>
+    </div>
+    <div class="metric-box">
+      <span class="metric-label">Avg Wait Time</span>
+      <div class="metric-value" id="wt">—</div>
+    </div>
+    <div class="metric-box">
+      <span class="metric-label">CPU Utilization</span>
+      <div class="metric-value" id="cpu">—</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const colors = [
+  "#4f8eff","#7c5cff","#34d399","#f59e0b","#f472b6","#f87171","#14b8a6","#fb923c","#a3e635","#38bdf8"
+];
+
+function generate(n) {
+  let c = document.getElementById("jobsContainer");
+  c.innerHTML = "";
+  for (let i = 0; i < n; i++) {
+    c.innerHTML += `<div class="job-row">
+      <div class="job-label">P${i+1}</div>
+      <input class="arrival" type="number" value="0" min="0">
+      <input class="burst" type="number" value="1" min="1">
+      <input class="priority" type="number" value="1" min="1">
+    </div>`;
+  }
+}
+
+document.getElementById("numJobs").onchange = e => generate(+e.target.value);
+generate(3);
+
+function getJobs() {
+  let a = document.querySelectorAll(".arrival");
+  let b = document.querySelectorAll(".burst");
+  let p = document.querySelectorAll(".priority");
+  let jobs = [];
+  for (let i = 0; i < a.length; i++) {
+    jobs.push({ id: i, arrival: +a[i].value, burst: +b[i].value, priority: +p[i].value, remaining: +b[i].value });
+  }
+  return jobs;
+}
+
+function run() {
+  let algo = document.getElementById("algorithm").value;
+  let q = +document.getElementById("quantum").value || 1;
+  let jobs = getJobs();
+  let time = 0, done = 0, n = jobs.length, log = [];
+
+  // Round Robin queue — tracks order of arrival into the ready queue
+  let rrQueue = [], rrInQueue = new Set();
+
+  while (done < n) {
+    let ready = jobs.filter(j => j.arrival <= time && j.remaining > 0);
+
+    if (ready.length === 0) {
+      // Idle: jump to next arrival instead of stepping 1 by 1
+      let nextArrival = Math.min(...jobs.filter(j => j.remaining > 0).map(j => j.arrival));
+      log.push({ id: -1, start: time, end: nextArrival });
+      time = nextArrival;
+      continue;
+    }
+
+    let current;
+
+    if (algo === "FCFS") {
+      // stable sort by arrival
+      current = [...ready].sort((a, b) => a.arrival - b.arrival || a.id - b.id)[0];
+    }
+    else if (algo === "SJF") {
+      // non-preemptive: shortest burst, tie-break by arrival then id
+      current = [...ready].sort((a, b) => a.burst - b.burst || a.arrival - b.arrival || a.id - b.id)[0];
+    }
+    else if (algo === "SRTF") {
+      // preemptive: shortest remaining, tie-break by arrival then id
+      current = [...ready].sort((a, b) => a.remaining - b.remaining || a.arrival - b.arrival || a.id - b.id)[0];
+    }
+    else if (algo === "PRIORITY_NP") {
+      current = [...ready].sort((a, b) => a.priority - b.priority || a.arrival - b.arrival || a.id - b.id)[0];
+    }
+    else if (algo === "PRIORITY_P") {
+      current = [...ready].sort((a, b) => a.priority - b.priority || a.arrival - b.arrival || a.id - b.id)[0];
+    }
+    else if (algo === "RR") {
+      // maintain proper FIFO queue for RR
+      ready.forEach(j => { if (!rrInQueue.has(j.id)) { rrQueue.push(j); rrInQueue.add(j.id); } });
+      // remove finished jobs from queue
+      rrQueue = rrQueue.filter(j => j.remaining > 0);
+      current = rrQueue[0];
+    }
+
+    let exec = 1;
+    if (algo === "FCFS" || algo === "SJF" || algo === "PRIORITY_NP") {
+      exec = current.remaining; // run to completion (non-preemptive)
+    }
+    else if (algo === "RR") {
+      exec = Math.min(q, current.remaining);
+    }
+    // SRTF and PRIORITY_P: exec stays 1 (preemptive, check every unit)
+
+    log.push({ id: current.id, start: time, end: time + exec });
+    current.remaining -= exec;
+    time += exec;
+
+    if (current.remaining === 0) {
+      current.finish = time;
+      done++;
+      if (algo === "RR") { rrQueue.shift(); rrInQueue.delete(current.id); }
+    } else if (algo === "RR") {
+      // move to back of queue after using its quantum
+      rrQueue.shift();
+      rrQueue.push(current);
+    }
+  }
+
+  // Merge consecutive same-process log entries (collapses preemptive 1-unit steps)
+  const merged = [];
+  log.forEach(entry => {
+    const last = merged[merged.length - 1];
+    if (last && last.id === entry.id && last.end === entry.start) {
+      last.end = entry.end;
+    } else {
+      merged.push({ ...entry });
+    }
+  });
+  log = merged;
+
+  // Table
+  let tat = 0, wt = 0;
+  let tbody = document.querySelector("#tatTable tbody");
+  tbody.innerHTML = "";
+  jobs.forEach(j => {
+    let t = j.finish - j.arrival;
+    let w = t - j.burst;
+    tat += t; wt += w;
+    let row = document.createElement("tr");
+    row.innerHTML = `<td>P${j.id+1}</td><td>${j.arrival}</td><td>${j.burst}</td><td>${j.priority}</td><td>${j.finish}</td><td>${t}</td><td>${w}</td>`;
+    tbody.appendChild(row);
+  });
+
+  // Gantt — proportional block widths based on duration
+  let g = document.getElementById("gantt");
+  g.innerHTML = "";
+
+  const totalDuration = log[log.length - 1].end - log[0].start;
+
+  const ganttWrap = document.createElement("div");
+  ganttWrap.style.cssText = "display:flex; width:100%; position:relative;";
+
+  log.forEach((l, i) => {
+    const duration = l.end - l.start;
+    const pct = (duration / totalDuration * 100).toFixed(4);
+
+    const seg = document.createElement("div");
+    seg.style.cssText = `flex: 0 0 ${pct}%; position:relative; min-width:0;`;
+
+    const b = document.createElement("div");
+    b.className = "block";
+    b.style.cssText = `
+      width:100%; margin:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+      border-radius: ${i === 0 ? "8px 0 0 8px" : i === log.length-1 ? "0 8px 8px 0" : "0"};
+      background: ${l.id === -1 ? "#e2e8f0" : colors[l.id % colors.length]};
+      border: ${l.id === -1 ? "1px dashed #cbd5e1" : "none"};
+      color: ${l.id === -1 ? "#64748b" : "#fff"};
+    `;
+    b.innerText = l.id === -1 ? "IDLE" : `P${l.id+1}`;
+
+    // Start time label pinned to left edge
+    const tLabel = document.createElement("div");
+    tLabel.style.cssText = `
+      position:absolute; top:calc(100% + 6px); left:0;
+      transform:translateX(-50%);
+      font-family:'JetBrains Mono',monospace; font-size:0.65rem;
+      color:var(--muted); white-space:nowrap;
+    `;
+    tLabel.innerText = l.start;
+
+    seg.appendChild(b);
+    seg.appendChild(tLabel);
+    ganttWrap.appendChild(seg);
+  });
+
+  // End time pinned to right edge
+  const endLabel = document.createElement("div");
+  endLabel.style.cssText = `
+    position:absolute; top:calc(100% + 6px); right:0;
+    transform:translateX(50%);
+    font-family:'JetBrains Mono',monospace; font-size:0.65rem;
+    color:var(--muted); white-space:nowrap;
+  `;
+  endLabel.innerText = log[log.length - 1].end;
+  ganttWrap.appendChild(endLabel);
+
+  const ganttOuter = document.createElement("div");
+  ganttOuter.style.cssText = "padding-bottom:28px; overflow:visible;";
+  ganttOuter.appendChild(ganttWrap);
+  g.appendChild(ganttOuter);
+
+  // Timeline
+  let timelineDiv = document.getElementById("timeline");
+  timelineDiv.innerHTML = '<div class="timeline-line"></div>';
+  let sorted = [...jobs].sort((a, b) => a.arrival - b.arrival);
+  let gap = 80, startX = 40;
+
+  sorted.forEach((j, index) => {
+    let x = startX + index * gap;
+    let color = colors[j.id % colors.length];
+
+    let dot = document.createElement("div");
+    dot.className = "timeline-dot";
+    dot.style.left = x + "px";
+    dot.style.background = color;
+    timelineDiv.appendChild(dot);
+
+    let mark = document.createElement("div");
+    mark.className = "timeline-mark";
+    mark.style.left = x + "px";
+    timelineDiv.appendChild(mark);
+
+    let timeEl = document.createElement("div");
+    timeEl.className = "timeline-time";
+    timeEl.style.left = x + "px";
+    timeEl.innerText = j.arrival;
+    timelineDiv.appendChild(timeEl);
+
+    let label = document.createElement("div");
+    label.className = "timeline-label";
+    label.style.left = x + "px";
+    label.style.color = color;
+    label.innerText = `P${j.id+1}`;
+    timelineDiv.appendChild(label);
+  });
+
+  // Metrics
+  let totalTime = time;
+  let busy = jobs.reduce((s, j) => s + j.burst, 0);
+  let nJobs = jobs.length;
+  document.getElementById("tat").innerText = (tat / nJobs).toFixed(2) + " ms";
+  document.getElementById("wt").innerText = (wt / nJobs).toFixed(2) + " ms";
+  document.getElementById("cpu").innerText = ((busy / totalTime) * 100).toFixed(1) + "%";
+}
+</script>
+</body>
+</html>
